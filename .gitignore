@@ -1,0 +1,61 @@
+# Ignore Python bytecode and cache directories
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments (don't track dependencies installed via pip)
+env/
+venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Editor and IDE settings
+.vscode/
+.idea/
+*.sublime-workspace
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+logs/
+debug.log
+
+# Environment variables and credentials (security-sensitive)
+.env
+*.secret
+config.json
+
+# Pytest and coverage reports
+htmlcov/
+.coverage
+*.cover
+*.py,cover
+
+# Build and distribution files
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+
+# MyPy, Pylint, and other static analysis tools
+.mypy_cache/
+.pytest_cache/
+pylint.log
+
+# Ignore compiled Cython files
+*.c
+*.so
+
+# Ignore SQLite database files
+*.sqlite3
+db.sqlite3
+
+# Ignore files created by packaging tools
+MANIFEST
+
+# Ignore IPFS-related files (if used)
+.ipfs/
