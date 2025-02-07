@@ -1,9 +1,10 @@
+# config.py
+
 import os
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://myuser:mysecretpassword@localhost:5432/mydb")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://myuser:mysecretpassword@postgres:5432/mydb")
 
-# Other queue names remain defined here
 FRONTDOOR = "frontdoor"
 CONTROLLER_ENTITLEMENT_CHECK = "controller_entitlement_check"
 CONTROLLER_ENTITLEMENT_PASS = "controller_entitlement_pass"
@@ -12,6 +13,9 @@ DATA_ENTITLEMENT_CHECK = "data_entitlement_check"
 DATA_ENTITLEMENT_PASS = "data_entitlement_pass"
 REJECTED = "rejected"
 
+# New output queue for returning responses to the user (e.g., GET results).
+FRONTDOOR_OUTPUT = "frontdoor_output"
+
 ALL_QUEUES = [
     FRONTDOOR,
     CONTROLLER_ENTITLEMENT_CHECK,
@@ -19,7 +23,8 @@ ALL_QUEUES = [
     DATA_REQUEST,
     DATA_ENTITLEMENT_CHECK,
     DATA_ENTITLEMENT_PASS,
-    REJECTED
+    REJECTED,
+    FRONTDOOR_OUTPUT
 ]
 
 def declare_all_queues(channel):

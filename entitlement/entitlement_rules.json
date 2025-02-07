@@ -1,0 +1,15 @@
+{
+    "green": {
+      "animals": ["read", "write"],
+      "plants": ["read", "write"]
+    },
+    "blue": {
+      "animals": [],
+      "plants": ["read", "write"]
+    },
+    "red": {
+      "animals": [],
+      "plants": []
+    }
+  }
+  
