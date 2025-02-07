@@ -1,3 +1,6 @@
+#docker run --rm --network ehservice_microservices -v "$($PWD.Path):/app" -w /app -e RABBITMQ_HOST=rabbitmq python:3.12-slim bash -c "pip install -r requirements.txt && python -u subscriber_frontdoor_output.py"
+
+
 import pika
 import json
 import uuid
@@ -16,6 +19,18 @@ def main():
     declare_all_queues(channel)
 
     test_messages = [
+        # 1) Green user (token_app_1) performing a GET on animals
+        {
+            "request_id": '002',
+            "token": "token_app_1",
+            "method": "GET",
+            "request_type": "data",
+            "item_type": "animals",
+            "payload": "goldfish"
+        },
+    ]
+
+    '''
         # 1) Green user (token_app_1) performing a GET on animals
         {
             "request_id": str(uuid.uuid4()),
@@ -79,7 +94,7 @@ def main():
             "payload": "Green user requests some non-data info"
         }
     ]
-
+'''
     for msg in test_messages:
         channel.basic_publish(
             exchange='',

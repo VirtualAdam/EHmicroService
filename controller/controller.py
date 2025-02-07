@@ -1,56 +1,61 @@
 import sys
 import os
-import time  # import time for sleep
+import time
+import json
+import logging
+import pika
 
-# Ensure the parent directory is in the Python path so that config.py can be imported
+# Add the parent directory so that shared modules (e.g., config.py) can be imported.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import json
-import pika
 import config
 from config import FRONTDOOR, CONTROLLER_ENTITLEMENT_CHECK, CONTROLLER_ENTITLEMENT_PASS, DATA_REQUEST, declare_all_queues
 
+logging.basicConfig(level=logging.INFO)
+
+def publish_message(channel, queue_name, data):
+    """Publish a message to the specified queue and log the action."""
+    message_json = json.dumps(data)
+    channel.basic_publish(exchange='', routing_key=queue_name, body=message_json)
+    logging.info(f"[Controller] Published to '{queue_name}': {message_json}")
+
 def on_frontdoor_message(ch, method, properties, body):
     message_str = body.decode()
-    print(f"[Controller] Received on FRONTDOOR: {message_str}")
+    logging.info(f"[Controller] Received on '{FRONTDOOR}': {message_str}")
     try:
         data = json.loads(message_str)
     except json.JSONDecodeError:
-        print("[Controller] Invalid JSON => ignoring")
+        logging.error("[Controller] Invalid JSON, ignoring message.")
         return
 
-    # Forward the message to the controller entitlement check queue
-    ch.basic_publish(
-        exchange='',
-        routing_key=CONTROLLER_ENTITLEMENT_CHECK,
-        body=json.dumps(data)
-    )
+    # Forward to controller_entitlement_check
+    publish_message(ch, CONTROLLER_ENTITLEMENT_CHECK, data)
     req_id = data.get("request_id", "N/A")
-    print(f"[Controller] [request_id={req_id}] => forwarded to {CONTROLLER_ENTITLEMENT_CHECK}")
+    logging.info(f"[Controller] [request_id={req_id}] Forwarded to '{CONTROLLER_ENTITLEMENT_CHECK}'.")
 
 def on_controller_pass(ch, method, properties, body):
     message_str = body.decode()
-    data = json.loads(message_str)
+    try:
+        data = json.loads(message_str)
+    except json.JSONDecodeError:
+        logging.error("[Controller] Invalid JSON in pass message.")
+        return
+
     req_id = data.get("request_id", "N/A")
-    print(f"[Controller] [request_id={req_id}] Passed controller entitlement: {message_str}")
+    logging.info(f"[Controller] [request_id={req_id}] Received from '{CONTROLLER_ENTITLEMENT_PASS}': {message_str}")
 
     if data.get("request_type") == "data":
-        # Forward data requests to the data_request queue for further processing
-        ch.basic_publish(
-            exchange='',
-            routing_key=DATA_REQUEST,
-            body=json.dumps(data)
-        )
-        print(f"[Controller] [request_id={req_id}] => forwarded to {DATA_REQUEST}")
+        publish_message(ch, DATA_REQUEST, data)
+        logging.info(f"[Controller] [request_id={req_id}] Forwarded to '{DATA_REQUEST}'.")
     else:
-        print(f"[Controller] [request_id={req_id}] Not a data request; no further action.")
+        logging.info(f"[Controller] [request_id={req_id}] Not a data request; no further action.")
 
 def main():
-    # Add a delay to give RabbitMQ time to start up (e.g., 10 seconds)
-    print("[Controller] Waiting 10 seconds before connecting to RabbitMQ...")
+    # Optional: delay to allow RabbitMQ to be ready.
+    logging.info("[Controller] Waiting 10 seconds before connecting to RabbitMQ...")
     time.sleep(10)
-
-    print(f"[Controller] Using RabbitMQ host: {config.RABBITMQ_HOST}")
+    logging.info(f"[Controller] Connecting to RabbitMQ at '{config.RABBITMQ_HOST}'...")
+    
     connection = pika.BlockingConnection(pika.ConnectionParameters(host=config.RABBITMQ_HOST))
     channel = connection.channel()
     declare_all_queues(channel)
@@ -58,7 +63,7 @@ def main():
     channel.basic_consume(queue=FRONTDOOR, on_message_callback=on_frontdoor_message, auto_ack=True)
     channel.basic_consume(queue=CONTROLLER_ENTITLEMENT_PASS, on_message_callback=on_controller_pass, auto_ack=True)
 
-    print("[Controller] Waiting for messages on FRONTDOOR and CONTROLLER_ENTITLEMENT_PASS...")
+    logging.info("[Controller] Waiting for messages on 'FRONTDOOR' and 'CONTROLLER_ENTITLEMENT_PASS'...")
     try:
         channel.start_consuming()
     except KeyboardInterrupt:
