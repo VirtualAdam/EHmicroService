@@ -1,8 +1,9 @@
-# config.py
+import os
 
-RABBITMQ_HOST = "localhost"
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://myuser:mysecretpassword@localhost:5432/mydb")
 
-# Queue Names
+# Other queue names remain defined here
 FRONTDOOR = "frontdoor"
 CONTROLLER_ENTITLEMENT_CHECK = "controller_entitlement_check"
 CONTROLLER_ENTITLEMENT_PASS = "controller_entitlement_pass"
@@ -11,7 +12,6 @@ DATA_ENTITLEMENT_CHECK = "data_entitlement_check"
 DATA_ENTITLEMENT_PASS = "data_entitlement_pass"
 REJECTED = "rejected"
 
-# All queues in one list
 ALL_QUEUES = [
     FRONTDOOR,
     CONTROLLER_ENTITLEMENT_CHECK,
@@ -23,9 +23,5 @@ ALL_QUEUES = [
 ]
 
 def declare_all_queues(channel):
-    """
-    Declare all the queues in ALL_QUEUES on the given channel.
-    This is idempotent: if a queue already exists, it's fine.
-    """
     for q in ALL_QUEUES:
         channel.queue_declare(queue=q)

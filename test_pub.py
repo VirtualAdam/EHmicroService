@@ -1,26 +1,24 @@
-# test_frontdoor_publisher.py
-
 import pika
 import json
 import uuid
+import os
 
 import config
 from config import FRONTDOOR, declare_all_queues
 
 def main():
-    connection = pika.BlockingConnection(
-        pika.ConnectionParameters(host=config.RABBITMQ_HOST)
-    )
+    # If the environment variable RABBITMQ_HOST isn't set, default to "localhost"
+    host = os.getenv("RABBITMQ_HOST", "localhost")
+    connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
     channel = connection.channel()
 
-    # Ensure all queues are declared
+    # Ensure all queues are declared (this is optional if your microservices already declare them)
     declare_all_queues(channel)
 
     test_messages = [
         # 1) A "green" user token, data request about animals
         {
-           #"request_id": str(uuid.uuid4()),
-            "request_id": "001",
+            "request_id": str(uuid.uuid4()),
             "token": "token_app_1",
             "request_type": "data",
             "item_type": "animals",
@@ -28,8 +26,7 @@ def main():
         },
         # 2) A "blue" user token, data request about animals
         {
-            #"request_id": str(uuid.uuid4()),
-            "request_id": "002",
+            "request_id": str(uuid.uuid4()),
             "token": "token_app_2",
             "request_type": "data",
             "item_type": "animals",
@@ -37,8 +34,7 @@ def main():
         },
         # 3) A "blue" user token, data request about plants (valid for blue => table2)
         {
-            #"request_id": str(uuid.uuid4()),
-            "request_id": "003",
+            "request_id": str(uuid.uuid4()),
             "token": "token_app_2",
             "request_type": "data",
             "item_type": "plants",
@@ -46,8 +42,7 @@ def main():
         },
         # 4) Malicious token => red => always rejected
         {
-            #"request_id": str(uuid.uuid4()),
-            "request_id": "004",
+            "request_id": str(uuid.uuid4()),
             "token": "token_malicious",
             "request_type": "data",
             "item_type": "animals",
@@ -55,8 +50,7 @@ def main():
         },
         # 5) Unknown token => purple => also rejected
         {
-            #"request_id": str(uuid.uuid4()),
-            "request_id": "005",
+            "request_id": str(uuid.uuid4()),
             "token": "some_unknown_token",
             "request_type": "data",
             "item_type": "plants",
@@ -64,8 +58,7 @@ def main():
         },
         # 6) Green user with a non-data request
         {
-            #"request_id": str(uuid.uuid4()),
-            "request_id": "006",
+            "request_id": str(uuid.uuid4()),
             "token": "token_app_1",
             "request_type": "other",
             "payload": "Green user requests something else"
@@ -78,7 +71,7 @@ def main():
             routing_key=FRONTDOOR,
             body=json.dumps(msg)
         )
-        print(f"[Publisher] Sent to frontdoor: {msg}")
+        print(f"[Publisher] Sent to {FRONTDOOR}: {msg}")
 
     connection.close()
     print("[Publisher] All test messages sent!")

@@ -1,0 +1,65 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - microservices
+
+  postgres:
+    image: postgres
+    container_name: postgres
+    environment:
+      - POSTGRES_PASSWORD=mysecretpassword
+      - POSTGRES_USER=myuser
+      - POSTGRES_DB=mydb
+    ports:
+      - "5432:5432"
+    networks:
+      - microservices
+
+  entitlement:
+    build:
+      context: .
+      dockerfile: entitlement/Dockerfile
+    container_name: entitlement_service
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+    depends_on:
+      - rabbitmq
+      - postgres
+    networks:
+      - microservices
+
+  controller:
+    build:
+      context: .
+      dockerfile: controller/Dockerfile
+    container_name: controller_service
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+    depends_on:
+      - rabbitmq
+    networks:
+      - microservices
+
+  data:
+    build:
+      context: .
+      dockerfile: data/Dockerfile
+    container_name: data_service
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - DATABASE_URL=postgresql+psycopg://myuser:mysecretpassword@postgres:5432/mydb
+    depends_on:
+      - rabbitmq
+      - postgres
+    networks:
+      - microservices
+
+networks:
+  microservices:
+    driver: bridge
