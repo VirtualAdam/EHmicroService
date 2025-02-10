@@ -33,7 +33,7 @@ Base.metadata.create_all(bind=engine)
 logging.basicConfig(level=logging.INFO)
 
 def publish_message(channel, queue_name, data):
-    """Publish a message and log the output."""
+    """Publish and log a message to the specified queue."""
     message_json = json.dumps(data)
     channel.basic_publish(exchange='', routing_key=queue_name, body=message_json)
     logging.info(f"[DataService] Published to '{queue_name}': {message_json}")
@@ -44,6 +44,8 @@ def on_data_request(ch, method, properties, body):
         data = json.loads(msg_str)
     except json.JSONDecodeError:
         logging.error("[DataService] Invalid JSON received on DATA_REQUEST.")
+        error_response = {"error": "Invalid JSON", "status": "error"}
+        publish_message(ch, FRONTDOOR_OUTPUT, error_response)
         return
 
     item_type = data.get("item_type", "unknown").lower()
@@ -53,9 +55,11 @@ def on_data_request(ch, method, properties, body):
         data["table"] = "table2"
     else:
         logging.error(f"[DataService] Unknown item_type: {item_type}. Not forwarding.")
+        error_response = {"request_id": data.get("request_id", "N/A"), "status": "error", "message": f"Unknown item_type: {item_type}"}
+        publish_message(ch, FRONTDOOR_OUTPUT, error_response)
         return
 
-    # Forward the modified message to DATA_ENTITLEMENT_CHECK
+    # Forward the modified message to DATA_ENTITLEMENT_CHECK.
     publish_message(ch, DATA_ENTITLEMENT_CHECK, data)
     logging.info(f"[DataService] Forwarded to '{DATA_ENTITLEMENT_CHECK}'.")
 
@@ -65,6 +69,8 @@ def on_data_pass(ch, method, properties, body):
         data = json.loads(msg_str)
     except json.JSONDecodeError:
         logging.error("[DataService] Invalid JSON received on DATA_ENTITLEMENT_PASS.")
+        error_response = {"error": "Invalid JSON", "status": "error"}
+        publish_message(ch, FRONTDOOR_OUTPUT, error_response)
         return
 
     request_id = data.get("request_id", "N/A")
@@ -85,6 +91,8 @@ def on_data_pass(ch, method, properties, body):
             session.add(record)
             session.commit()
             logging.info(f"[DataService] [request_id={request_id}] Record inserted.")
+            response_msg = {"request_id": request_id, "method": "POST", "status": "success", "message": "Record inserted"}
+            publish_message(ch, FRONTDOOR_OUTPUT, response_msg)
         elif method_name == "GET":
             results = session.query(DataRecord).filter_by(table_name=table).all()
             output = [{
@@ -97,6 +105,7 @@ def on_data_pass(ch, method, properties, body):
             response_msg = {
                 "request_id": request_id,
                 "method": "GET",
+                "status": "success",
                 "results": output
             }
             publish_message(ch, FRONTDOOR_OUTPUT, response_msg)
@@ -107,21 +116,31 @@ def on_data_pass(ch, method, properties, body):
                 record.payload = data.get("payload", "")
                 session.commit()
                 logging.info(f"[DataService] [request_id={request_id}] Record updated.")
+                response_msg = {"request_id": request_id, "method": "PUT", "status": "success", "message": "Record updated"}
             else:
                 logging.info(f"[DataService] [request_id={request_id}] No record found to update.")
+                response_msg = {"request_id": request_id, "method": "PUT", "status": "error", "message": "No record found to update"}
+            publish_message(ch, FRONTDOOR_OUTPUT, response_msg)
         elif method_name == "DELETE":
             record = session.query(DataRecord).filter_by(table_name=table).first()
             if record:
                 session.delete(record)
                 session.commit()
                 logging.info(f"[DataService] [request_id={request_id}] Record deleted.")
+                response_msg = {"request_id": request_id, "method": "DELETE", "status": "success", "message": "Record deleted"}
             else:
                 logging.info(f"[DataService] [request_id={request_id}] No record found to delete.")
+                response_msg = {"request_id": request_id, "method": "DELETE", "status": "error", "message": "No record found to delete"}
+            publish_message(ch, FRONTDOOR_OUTPUT, response_msg)
         else:
             logging.info(f"[DataService] [request_id={request_id}] Unrecognized method '{method_name}'. No operation performed.")
+            response_msg = {"request_id": request_id, "method": method_name, "status": "error", "message": "Unrecognized method"}
+            publish_message(ch, FRONTDOOR_OUTPUT, response_msg)
     except Exception as e:
         logging.error(f"[DataService] [request_id={request_id}] DB operation failed: {e}")
         session.rollback()
+        error_response = {"request_id": request_id, "method": method_name, "status": "error", "message": f"DB operation failed: {e}"}
+        publish_message(ch, FRONTDOOR_OUTPUT, error_response)
     finally:
         session.close()
 

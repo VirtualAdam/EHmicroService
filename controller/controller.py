@@ -20,21 +20,25 @@ def publish_message(channel, queue_name, data):
     logging.info(f"[Controller] Published to '{queue_name}': {message_json}")
 
 def on_frontdoor_message(ch, method, properties, body):
+    """Handles incoming messages from the frontdoor queue and forwards them for entitlement checks."""
     message_str = body.decode()
     logging.info(f"[Controller] Received on '{FRONTDOOR}': {message_str}")
+    
     try:
         data = json.loads(message_str)
     except json.JSONDecodeError:
         logging.error("[Controller] Invalid JSON, ignoring message.")
         return
 
-    # Forward to controller_entitlement_check
+    # Forward to entitlement check
     publish_message(ch, CONTROLLER_ENTITLEMENT_CHECK, data)
     req_id = data.get("request_id", "N/A")
     logging.info(f"[Controller] [request_id={req_id}] Forwarded to '{CONTROLLER_ENTITLEMENT_CHECK}'.")
 
 def on_controller_pass(ch, method, properties, body):
+    """Handles messages from entitlement_pass and determines if they should be forwarded to data_request."""
     message_str = body.decode()
+    
     try:
         data = json.loads(message_str)
     except json.JSONDecodeError:
@@ -44,14 +48,15 @@ def on_controller_pass(ch, method, properties, body):
     req_id = data.get("request_id", "N/A")
     logging.info(f"[Controller] [request_id={req_id}] Received from '{CONTROLLER_ENTITLEMENT_PASS}': {message_str}")
 
-    if data.get("request_type") == "data":
+    # Forward all POST, PUT, GET, DELETE requests to the data service
+    if data.get("method") in ["POST", "PUT", "GET", "DELETE"]:
         publish_message(ch, DATA_REQUEST, data)
         logging.info(f"[Controller] [request_id={req_id}] Forwarded to '{DATA_REQUEST}'.")
     else:
-        logging.info(f"[Controller] [request_id={req_id}] Not a data request; no further action.")
+        logging.info(f"[Controller] [request_id={req_id}] Not a valid data request; no further action.")
 
 def main():
-    # Optional: delay to allow RabbitMQ to be ready.
+    """Main function to set up RabbitMQ connection and start consuming messages."""
     logging.info("[Controller] Waiting 10 seconds before connecting to RabbitMQ...")
     time.sleep(10)
     logging.info(f"[Controller] Connecting to RabbitMQ at '{config.RABBITMQ_HOST}'...")

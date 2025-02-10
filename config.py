@@ -29,4 +29,6 @@ ALL_QUEUES = [
 
 def declare_all_queues(channel):
     for q in ALL_QUEUES:
-        channel.queue_declare(queue=q)
+        # Explicitly declare each queue as non-durable.
+        channel.queue_declare(queue=q, durable=False)
+

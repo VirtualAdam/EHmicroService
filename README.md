@@ -18,24 +18,34 @@ All services are containerized and orchestrated with Docker Compose. The only de
 The project is organized as follows:
 
 ```
-EHservice/
-├── .dockerignore
-├── docker-compose.yml
-├── README.md
-├── requirements.txt
-├── config.py
-├── auth_utils.py
-├── test_pub.py           # Test publisher script (sends messages to the frontdoor queue)
-├── controller/
-│   ├── Dockerfile
-│   └── controller.py
-├── entitlement/
-│   ├── Dockerfile
-│   └── entitlement_service.py
-├── data/
-│   ├── Dockerfile
-│   └── data_service.py
-└── __pycache__           # (Ignored by .dockerignore)
+Folder PATH listing
+|   .dockerignore
+|   .gitignore
+|   config.py
+|   docker-compose.yml
+|   README.md
+|   requirements.txt
+|   structure.txt
+|   subscriber_frontdoor_output.py
+|   test_pub.py
+|   
++---controller
+|       controller.py
+|       Dockerfile
+|       
++---data
+|       data_service.py
+|       Dockerfile
+|       
++---entitlement
+|       Dockerfile
+|       entitlement_rules.json
+|       entitlement_service.py
+|       
+\---__pycache__
+        auth_utils.cpython-313.pyc
+        config.cpython-312.pyc
+        config.cpython-313.pyc
 ```
 
 - **config.py**: Centralizes configuration values (queue names, RabbitMQ host, DATABASE_URL, etc.).
@@ -159,3 +169,40 @@ docker-compose down
 
 # Enjoy building your microservices with EHservice!
 ```
+## Development Status
+
+**Current stable version**:  
+We've successfully implemented a microservices architecture with:
+- **CRUD** operations in the data service
+- **Entitlement** service with JSON-based RBAC rules
+- **Controller** and **frontdoor** queues
+- **RabbitMQ** for message routing
+- **PostgreSQL** for persistence
+
+**Branching for new features**:  
+To add new features or experiment with changes, create a new branch from the current `main` (or use the `v1.0-crud-rbac` tag). For example:
+```bash
+git checkout main
+git pull
+git checkout -b new-feature
+
+### Key Files and Directories
+
+- **docker-compose.yml**: Defines services for RabbitMQ, PostgreSQL, controller, entitlement, and data.
+- **controller/**:
+  - `controller.py`: Handles frontdoor input, entitlement checks, data forwarding.
+  - `Dockerfile`: Instructions for building the controller service.
+- **entitlement/**:
+  - `entitlement_service.py`: Reads JSON RBAC rules (`entitlement_rules.json`) and enforces them.
+  - `entitlement_rules.json`: Defines read/write access for roles (green, blue, red).
+  - `Dockerfile`: Instructions for building the entitlement service.
+- **data/**:
+  - `data_service.py`: Implements CRUD for animals/plants, plus logic for reading/writing records.
+  - `Dockerfile`: Instructions for building the data service.
+- **test_pub.py**: A test publisher script that sends various requests (GET/POST/PUT/DELETE) to `frontdoor`.
+- **subscriber_frontdoor_output.py**: An optional subscriber script that listens on the `frontdoor_output` queue.
+
+### Future ChatGPT Sessions
+
+- Provide your README, `docker-compose.yml`, and relevant code snippets to ChatGPT so it understands the existing architecture.
+- Reference the stable commit/tag (`v1.0-crud-rbac`) if you want ChatGPT to see the baseline state before new features are added.
